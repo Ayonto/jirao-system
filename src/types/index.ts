@@ -79,6 +79,7 @@ export interface RegisterData {
   email: string;
   password: string;
   role: 'guest' | 'host';
+  phone?: string;
 }
 
 export interface CreateSpaceData {

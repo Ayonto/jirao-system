@@ -36,10 +36,15 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
             className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => onNavigate(user.role === 'guest' ? 'dashboard' : 'host-dashboard')}
           >
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center mr-3">
-              <span className="text-white font-bold text-sm">J</span>
-            </div>
-            <h1 className="text-xl font-bold text-gray-900">JIRAO</h1>
+
+            
+            <img
+              src="/logo.png"
+              alt="JIRAO logo"
+              className="h-9 w-auto mr-2"
+            />
+
+
           </div>
 
           <nav className="hidden md:flex items-center space-x-8">

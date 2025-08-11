@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Eye, EyeOff, Loader, Home, Car } from 'lucide-react';
+import { Eye, EyeOff, Loader, Home, Phone, CreditCard } from 'lucide-react';
 import AdminLogin from '../Admin/AdminLogin';
+
+// const LOGO_SIZE_PX = 150;
 
 const AuthPage: React.FC = () => {
   const { login, register, loading, error } = useAuth();
@@ -13,7 +15,9 @@ const AuthPage: React.FC = () => {
     username: '',
     email: '',
     password: '',
-    role: 'guest' as 'guest' | 'host'
+    role: 'guest' as 'guest' | 'host',
+    phone: '',
+    nid_number: ''
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -43,7 +47,9 @@ const AuthPage: React.FC = () => {
       username: '',
       email: '',
       password: '',
-      role: 'guest'
+      role: 'guest',
+      phone: '',
+      nid_number: ''
     });
   };
 
@@ -68,11 +74,15 @@ const AuthPage: React.FC = () => {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-
-            <span className="text-white font-bold text-2xl">J</span>
-          </div>
-          <h2 className="text-3xl font-bold text-gray-900">JIRAO</h2>
+          <img
+            src="/logo.png"
+            alt="JIRAO logo"
+            className="block mx-auto mb-4 object-contain"
+            style={{ width: 220, height: 80 }}
+            loading="eager"
+            decoding="async"
+          />
+          {/* <h2 className="text-3xl font-bold text-gray-900">JIRAO</h2> */}
           
           <p className="text-gray-600 mt-2">Your space rental marketplace</p>
         </div>
@@ -129,6 +139,28 @@ const AuthPage: React.FC = () => {
               </div>
             )}
 
+
+            {!isLogin && (
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number *
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    required={!isLogin}
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
@@ -157,6 +189,30 @@ const AuthPage: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {!isLogin && formData.role === 'host' && (
+              <div>
+                <label htmlFor="nid_number" className="block text-sm font-medium text-gray-700 mb-1">
+                  NID Card Number *
+                </label>
+                <div className="relative">
+                  <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    id="nid_number"
+                    name="nid_number"
+                    type="text"
+                    required={formData.role === 'host'}
+                    value={formData.nid_number}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    placeholder="Enter your NID card number"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Required for host verification and approval process
+                </p>
+              </div>
+            )}
 
             {!isLogin && (
               <div>
@@ -191,6 +247,8 @@ const AuthPage: React.FC = () => {
                 </div>
               </div>
             )}
+
+            
 
             <button
               type="submit"

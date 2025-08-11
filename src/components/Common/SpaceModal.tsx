@@ -151,8 +151,10 @@ const SpaceModal: React.FC<SpaceModalProps> = ({ space, onClose, userRole = 'gue
           {/* Rate Display */}
           <div className="mb-6">
             <div className="flex items-center space-x-2 text-lg font-semibold text-gray-900">
-              <DollarSign className="w-5 h-5" />
-              <span>${space.rate_per_hour}/hour</span>
+              {/* <DollarSign className="w-5 h-5" /> */}
+              <span className="w-5 h-5 inline-block text-lg font-semibold">TK</span>
+
+              <span>৳{space.rate_per_hour}/hour</span>
             </div>
           </div>
 

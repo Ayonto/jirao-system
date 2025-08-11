@@ -109,7 +109,9 @@ const SpaceCard: React.FC<SpaceCardProps> = ({
         {/* Footer */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-1 text-lg font-semibold text-gray-900">
-            <DollarSign className="w-4 h-4" />
+            {/* <DollarSign className="w-4 h-4" /> */}
+            <span className="w-2 h-7 inline-block text-lg font-semibold">৳</span>
+
             <span>{space.rate_per_hour}</span>
             <span className="text-sm text-gray-500 font-normal">/hour</span>
           </div>

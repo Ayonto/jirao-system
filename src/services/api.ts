@@ -132,6 +132,16 @@ export const api = {
     return handleResponse(response);
   },
 
+
+  async respondToInterest(interestId: number, status: 'accepted' | 'rejected'): Promise<Interest> {
+    const response = await fetch(`${API_BASE_URL}/interests/${interestId}/respond`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ status })
+    });
+    return handleResponse(response);
+  },
+
   async cancelInterest(interestId: number): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/interests/${interestId}`, {
       method: 'DELETE',
@@ -153,7 +163,10 @@ export const api = {
     const response = await fetch(`${API_BASE_URL}/reports`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify({
+        ...data,
+        reporter_id: reporterId
+      })
     });
     return handleResponse(response);
   },

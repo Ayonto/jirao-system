@@ -148,7 +148,7 @@ async def register():
     pass
 
 @app.post("/api/auth/admin-login")
-async def admin_login():
+async def admin_login(request: Request):
     """
     Admin login endpoint.
     
@@ -168,7 +168,53 @@ async def admin_login():
     4. Return user info and token
     """
     # TODO: Implement admin login logic
-    pass
+    
+
+    try:
+        # 1. Parse request body
+        data = await request.json()
+        username = data.get("username")
+        password = data.get("password")
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail="Username and password required")
+
+        # 2. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # 3. Query admin user
+        query = """
+        SELECT id, username, email, role, status, date_joined
+        FROM users
+        WHERE username = %s AND password = %s AND role = 'admin'
+        """
+        cursor.execute(query, (username, password))
+        user = cursor.fetchone()
+
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid admin credentials")
+
+        # 4. Check if not banned
+        if user["status"] == "banned":
+            raise HTTPException(status_code=403, detail="Admin account is banned")
+
+        # 5. Format date
+        if isinstance(user["date_joined"], datetime):
+            user["date_joined"] = user["date_joined"].isoformat() + "Z"
+
+        # 6. Return with token
+        return {
+            "user": user,
+            "token": "simple_token_admin"
+        }
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 # SPACE ENDPOINTS
 
@@ -216,7 +262,7 @@ async def get_spaces(location: str = None):
             SELECT s.*, u.username AS owner_name
             FROM spaces s
             JOIN users u ON s.owner_id = u.id
-            WHERE s.availability = 'available'
+
         """
         params = ()
 
@@ -669,6 +715,7 @@ async def express_interest(request: Request):
     
     RECEIVES (from request body):
     {
+        "user_id: userId, 
         "space_id": 123,
         "hours_requested": 4  # optional - can be null/undefined
     }
@@ -700,71 +747,73 @@ async def express_interest(request: Request):
     """
     # TODO: Implement express interest logic
     try:
+        # 1. Parse JSON body
         data = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        user_id = data.get("user_id")
+        space_id = data.get("space_id")
+        hours_requested = data.get("hours_requested")
 
-    user_id = data.get("user_id")
-    space_id = data.get("space_id")
-    hours_requested = data.get("hours_requested")  # can be None
+        if not user_id or not space_id:
+            raise HTTPException(status_code=400, detail="user_id and space_id are required")
 
-    if not user_id or not space_id:
-        raise HTTPException(status_code=422, detail="user_id and space_id are required")
+        # 2. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
 
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="Database connection failed")
-
-    try:
-        cursor = conn.cursor(dictionary=True)
-
-        # Check if interest already exists
-        cursor.execute(
-            "SELECT * FROM interests WHERE user_id = %s AND space_id = %s",
-            (user_id, space_id)
-        )
-        existing = cursor.fetchone()
-        if existing:
+        # 3. Check if already interested
+        check_query = """
+        SELECT id FROM interests WHERE user_id = %s AND space_id = %s
+        """
+        cursor.execute(check_query, (user_id, space_id))
+        if cursor.fetchone():
             raise HTTPException(status_code=400, detail="Already interested")
 
-        # Insert new interest with status 'pending'
-        cursor.execute(
-            "INSERT INTO interests (user_id, space_id, hours_requested, status) VALUES (%s, %s, %s, 'pending')",
-            (user_id, space_id, hours_requested)
-        )
-        conn.commit()
+        # 4. Insert interest
+        insert_query = """
+        INSERT INTO interests (user_id, space_id, hours_requested, status)
+        VALUES (%s, %s, %s, 'pending')
+        """
+        cursor.execute(insert_query, (user_id, space_id, hours_requested))
+        connection.commit()
         interest_id = cursor.lastrowid
 
-        # Retrieve interest with user and space details
-        query = """
-            SELECT 
-                i.id, i.user_id, i.space_id, i.hours_requested, i.status, i.host_response_date, i.timestamp,
-                u.username AS user_name, u.email AS user_email,
-                s.title AS space_title, s.location AS space_location, s.rate_per_hour AS space_rate
-            FROM interests i
-            JOIN users u ON i.user_id = u.id
-            JOIN spaces s ON i.space_id = s.id
-            WHERE i.id = %s
+        # 5. Retrieve interest with user and space details
+        select_query = """
+        SELECT 
+            i.id, 
+            i.user_id, 
+            i.space_id, 
+            i.hours_requested,
+            i.status,
+            i.host_response_date,
+            i.timestamp,
+            u.username AS user_name,
+            u.email AS user_email,
+            s.title AS space_title,
+            s.location AS space_location,
+            s.rate_per_hour AS space_rate
+        FROM interests i
+        JOIN users u ON i.user_id = u.id
+        JOIN spaces s ON i.space_id = s.id
+        WHERE i.id = %s
         """
-        cursor.execute(query, (interest_id,))
+        cursor.execute(select_query, (interest_id,))
         interest = cursor.fetchone()
 
-        # Convert datetime fields to ISO format strings if present
-        if interest:
-            if interest["host_response_date"]:
-                interest["host_response_date"] = interest["host_response_date"].isoformat()
-            if interest["timestamp"]:
-                interest["timestamp"] = interest["timestamp"].isoformat()
-
-        cursor.close()
-        conn.close()
+        # 6. Format datetime fields
+        if isinstance(interest["timestamp"], datetime):
+            interest["timestamp"] = interest["timestamp"].isoformat() + "Z"
+        if interest["host_response_date"] and isinstance(interest["host_response_date"], datetime):
+            interest["host_response_date"] = interest["host_response_date"].isoformat() + "Z"
 
         return interest
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 @app.get("/api/interests/user/{user_id}")
 async def get_user_interests(user_id: int):
@@ -839,7 +888,7 @@ async def get_space_interests(space_id: int):
     RECEIVES (path parameter):
     - space_id: int
     
-    YOU NEED TO RETURN:
+    RETURNS:
     [
         {
             "id": 456,
@@ -854,49 +903,49 @@ async def get_space_interests(space_id: int):
         }
     ]
     
-    LOGIC TO IMPLEMENT:
+    LOGIC:
     1. Query interests with user details:
        SELECT i.*, u.username as user_name, u.email as user_email
        FROM interests i JOIN users u ON i.user_id = u.id WHERE i.space_id = ?
     2. Return array of interests
     """
-    # TODO: Implement get space interests logic
-    
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="Database connection failed")
-
     try:
-        cursor = conn.cursor(dictionary=True)
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
 
+        # 2. Query with JOIN
         query = """
-            SELECT 
-                i.id, i.user_id, i.space_id, i.hours_requested, i.status, i.host_response_date, i.timestamp,
-                u.username AS user_name, u.email AS user_email
-            FROM interests i
-            JOIN users u ON i.user_id = u.id
-            WHERE i.space_id = %s
+        SELECT i.id, i.user_id, i.space_id, i.hours_requested, i.status, 
+               i.host_response_date, i.timestamp,
+               u.username AS user_name, u.email AS user_email
+        FROM interests i
+        JOIN users u ON i.user_id = u.id
+        WHERE i.space_id = %s
         """
         cursor.execute(query, (space_id,))
         interests = cursor.fetchall()
 
-        # Format datetime fields to ISO strings if present
+        # 3. Format datetime fields
         for interest in interests:
-            if interest["host_response_date"]:
-                interest["host_response_date"] = interest["host_response_date"].isoformat()
-            if interest["timestamp"]:
-                interest["timestamp"] = interest["timestamp"].isoformat()
-
-        cursor.close()
-        conn.close()
+            if isinstance(interest["timestamp"], datetime):
+                interest["timestamp"] = interest["timestamp"].isoformat() + "Z"
+            if isinstance(interest["host_response_date"], datetime):
+                interest["host_response_date"] = interest["host_response_date"].isoformat() + "Z"  
+            elif interest["host_response_date"] is None:
+                interest["host_response_date"] = None
 
         return interests
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 @app.put("/api/interests/{interest_id}/respond")
-async def respond_to_interest(interest_id: int):
+async def respond_to_interest(interest_id: int, request: Request):
     """
     Host responds to an interest (accept/reject).
     
@@ -931,24 +980,93 @@ async def respond_to_interest(interest_id: int):
     4. Return updated interest object
     """
     # TODO: Implement respond to interest logic
-    pass
+    
+    try:
+        # 1. Parse JSON body
+        data = await request.json()
+        new_status = data.get("status")
+
+        if new_status not in ["accepted", "rejected"]:
+            raise HTTPException(status_code=400, detail="Invalid status value. Must be 'accepted' or 'rejected'.")
+
+        # 2. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # 3. Update interest
+        update_query = """
+        UPDATE interests
+        SET status = %s, host_response_date = NOW()
+        WHERE id = %s
+        """
+        cursor.execute(update_query, (new_status, interest_id))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Interest not found")
+
+        # 4. Fetch updated interest with user & space details
+        select_query = """
+        SELECT i.id, i.user_id, i.space_id, i.hours_requested, i.status,
+               i.host_response_date, i.timestamp,
+               u.username AS user_name, u.email AS user_email,
+               s.title AS space_title, s.location AS space_location, s.rate_per_hour AS space_rate
+        FROM interests i
+        JOIN users u ON i.user_id = u.id
+        JOIN spaces s ON i.space_id = s.id
+        WHERE i.id = %s
+        """
+        cursor.execute(select_query, (interest_id,))
+        updated_interest = cursor.fetchone()
+
+        if not updated_interest:
+            raise HTTPException(status_code=404, detail="Updated interest not found")
+
+        # 5. Format datetime fields
+        if isinstance(updated_interest["timestamp"], datetime):
+            updated_interest["timestamp"] = updated_interest["timestamp"].isoformat() + "Z"
+        if isinstance(updated_interest["host_response_date"], datetime):
+            updated_interest["host_response_date"] = updated_interest["host_response_date"].isoformat() + "Z"
+        elif updated_interest["host_response_date"] is None:
+            updated_interest["host_response_date"] = None
+
+        return updated_interest
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
+
 @app.delete("/api/interests/{interest_id}")
 async def cancel_interest(interest_id: int):
     """
     Cancel an interest.
-    
-    RECEIVES (path parameter):
-    - interest_id: int
-    
-    YOU NEED TO RETURN:
-    {"message": "Interest cancelled successfully"}
-    
-    LOGIC TO IMPLEMENT:
-    1. Delete interest: DELETE FROM interests WHERE id = ?
-    2. Return success message
     """
-    # TODO: Implement cancel interest logic
-    pass
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        # 2. Delete interest
+        delete_query = "DELETE FROM interests WHERE id = %s"
+        cursor.execute(delete_query, (interest_id,))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Interest not found")
+
+        # 3. Return success message
+        return {"message": "Interest cancelled successfully"}
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
+
 
 @app.get("/api/interests/check/{space_id}/{user_id}")
 async def check_user_interest(space_id: int, user_id: int):
@@ -967,17 +1085,39 @@ async def check_user_interest(space_id: int, user_id: int):
     2. Return boolean result
     """
     # TODO: Implement check user interest logic
-    pass
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor()
 
+        # 2. Query count
+        query = """
+        SELECT COUNT(*) 
+        FROM interests 
+        WHERE user_id = %s AND space_id = %s
+        """
+        cursor.execute(query, (user_id, space_id))
+        (count,) = cursor.fetchone()
+
+        # 3. Return boolean result
+        return {"has_interest": count > 0}
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 # REPORT ENDPOINTS
 
 @app.post("/api/reports")
-async def create_report():
+async def create_report(request: Request):
     """
     Create a new report.
     
     RECEIVES (from request body):
     {
+        "reporter_id": 1,
         "reported_id": 123,
         "space_id": 456,  # optional
         "reason": "User was inappropriate"
@@ -999,15 +1139,86 @@ async def create_report():
     }
     
     LOGIC TO IMPLEMENT:
-    1. Get data from request body
-    2. Get reporter_id from token/session (hardcode for now)
+    1. Get reporter_id, reported_id, space_id, reason from request body
+    2. Get reporter and reported user details from database
     3. Get reporter and reported user details
     4. If space_id provided, get space title and append to reason
-    5. Insert report: INSERT INTO reports (reporter_id, reported_id, reporter_role, reported_role, reason) VALUES (?, ?, ?, ?, ?)
+    5. Insert report: INSERT INTO reports (reporter_id, reported_id, reporter_role, reported_role, reason, timestamp) VALUES (?, ?, ?, ?, ?, NOW())
     6. Return report with all user details
     """
     # TODO: Implement create report logic
-    pass
+    try:
+        # 1. Parse request body
+        data = await request.json()
+        reporter_id = data.get("reporter_id")
+        reported_id = data.get("reported_id")
+        space_id = data.get("space_id")
+        reason = data.get("reason")
+
+        if not reporter_id or not reported_id or not reason:
+            raise HTTPException(status_code=400, detail="reporter_id, reported_id, and reason are required")
+
+        # 2. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # 3. Get reporter details
+        cursor.execute("SELECT id, username, email, role FROM users WHERE id = %s", (reporter_id,))
+        reporter = cursor.fetchone()
+        if not reporter:
+            raise HTTPException(status_code=404, detail="Reporter not found")
+
+        # 4. Get reported user details
+        cursor.execute("SELECT id, username, email, role FROM users WHERE id = %s", (reported_id,))
+        reported = cursor.fetchone()
+        if not reported:
+            raise HTTPException(status_code=404, detail="Reported user not found")
+
+        # 5. Append space title to reason if space_id provided
+        if space_id:
+            cursor.execute("SELECT title FROM spaces WHERE id = %s", (space_id,))
+            space = cursor.fetchone()
+            if space:
+                reason += f" (Listing: {space['title']})"
+
+        # 6. Insert report
+        insert_query = """
+        INSERT INTO reports (reporter_id, reported_id, reporter_role, reported_role, reason, timestamp)
+        VALUES (%s, %s, %s, %s, %s, NOW())
+        """
+        cursor.execute(insert_query, (
+            reporter_id,
+            reported_id,
+            reporter["role"],
+            reported["role"],
+            reason
+        ))
+        connection.commit()
+        report_id = cursor.lastrowid
+
+        # 7. Build return object
+        new_report = {
+            "id": report_id,
+            "reporter_id": reporter_id,
+            "reported_id": reported_id,
+            "reporter_role": reporter["role"],
+            "reported_role": reported["role"],
+            "reason": reason,
+            "timestamp": datetime.now().isoformat() + "Z",
+            "reporter_name": reporter["username"],
+            "reported_name": reported["username"],
+            "reporter_email": reporter["email"],
+            "reported_email": reported["email"]
+        }
+
+        return new_report
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 @app.get("/api/reports")
 async def get_reports():
@@ -1024,7 +1235,43 @@ async def get_reports():
     2. Return array of reports
     """
     # TODO: Implement get reports logic
-    pass
+    
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # 2. Query reports with reporter & reported user details
+        query = """
+        SELECT
+            r.id,
+            r.reporter_id,
+            r.reported_id,
+            r.reporter_role,
+            r.reported_role,
+            r.reason,
+            DATE_FORMAT(r.timestamp, '%Y-%m-%dT%H:%i:%sZ') AS timestamp,
+            reporter.username AS reporter_name,
+            reported.username AS reported_name,
+            reporter.email AS reporter_email,
+            reported.email AS reported_email
+        FROM reports r
+        JOIN users reporter ON r.reporter_id = reporter.id
+        JOIN users reported ON r.reported_id = reported.id
+        ORDER BY r.timestamp DESC
+        """
+        cursor.execute(query)
+        reports = cursor.fetchall()
+
+        return reports
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
+    
 
 @app.get("/api/users/for-reporting/{current_user_id}/{target_role}")
 async def get_users_for_reporting(current_user_id: int, target_role: str):
@@ -1052,7 +1299,35 @@ async def get_users_for_reporting(current_user_id: int, target_role: str):
     2. Return array of users
     """
     # TODO: Implement get users for reporting logic
-    pass
+    
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # 2. Query active users with given role, excluding current user
+        query = """
+        SELECT id, username, email, role, status, date_joined
+        FROM users
+        WHERE role = %s AND id != %s AND status = 'active'
+        """
+        cursor.execute(query, (target_role, current_user_id))
+        users = cursor.fetchall()
+
+        # 3. Format datetime for JSON
+        for user in users:
+            if isinstance(user["date_joined"], datetime):
+                user["date_joined"] = user["date_joined"].isoformat() + "Z"
+
+        return users
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
+    
 
 # ADMIN ENDPOINTS
 
@@ -1080,7 +1355,35 @@ async def get_all_users():
     2. Return array of users
     """
     # TODO: Implement get all users logic
-    pass
+    
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # 2. Query all users except admins
+        query = """
+        SELECT id, username, email, role, status, date_joined
+        FROM users
+        WHERE role != 'admin'
+        """
+        cursor.execute(query)
+        users = cursor.fetchall()
+
+        # 3. Format datetime for JSON
+        for user in users:
+            if isinstance(user["date_joined"], datetime):
+                user["date_joined"] = user["date_joined"].isoformat() + "Z"
+
+        # 4. Return users
+        return users
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 @app.put("/api/admin/users/{user_id}/ban")
 async def ban_user(user_id: int):
@@ -1098,7 +1401,33 @@ async def ban_user(user_id: int):
     2. Return success message
     """
     # TODO: Implement ban user logic
-    pass
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        # 2. Update user status to 'banned'
+        update_query = """
+        UPDATE users
+        SET status = 'banned'
+        WHERE id = %s
+        """
+        cursor.execute(update_query, (user_id,))
+        connection.commit()
+
+        # 3. Check if any row was affected
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # 4. Return success message
+        return {"message": "User banned successfully"}
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 @app.put("/api/admin/users/{user_id}/unban")
 async def unban_user(user_id: int):
@@ -1116,7 +1445,33 @@ async def unban_user(user_id: int):
     2. Return success message
     """
     # TODO: Implement unban user logic
-    pass
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        # 2. Update user status to 'active'
+        update_query = """
+        UPDATE users
+        SET status = 'active'
+        WHERE id = %s
+        """
+        cursor.execute(update_query, (user_id,))
+        connection.commit()
+
+        # 3. Check if user was found and updated
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # 4. Return success message
+        return {"message": "User unbanned successfully"}
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 @app.delete("/api/admin/users/{user_id}")
 async def delete_user(user_id: int):
@@ -1135,7 +1490,31 @@ async def delete_user(user_id: int):
     3. Return success message
     """
     # TODO: Implement delete user logic
-    pass
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        # 2. Delete user (related data will be auto-deleted due to ON DELETE CASCADE)
+        delete_query = """
+        DELETE FROM users WHERE id = %s
+        """
+        cursor.execute(delete_query, (user_id,))
+        connection.commit()
+
+        # 3. Check if user existed
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # 4. Return success message
+        return {"message": "User deleted successfully"}
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 @app.get("/api/admin/pending-hosts")
 async def get_pending_hosts():
@@ -1160,7 +1539,33 @@ async def get_pending_hosts():
     2. Return array of pending hosts
     """
     # TODO: Implement get pending hosts logic
-    pass
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # 2. Query all pending hosts
+        query = """
+        SELECT id, username, email, nid_image, date_applied
+        FROM pending_hosts
+        """
+        cursor.execute(query)
+        pending_hosts = cursor.fetchall()
+
+        # 3. Format datetime fields
+        for host in pending_hosts:
+            if isinstance(host["date_applied"], datetime):
+                host["date_applied"] = host["date_applied"].isoformat() + "Z"
+
+        # 4. Return list
+        return pending_hosts
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 @app.post("/api/admin/approve-host/{pending_host_id}")
 async def approve_host(pending_host_id: int):
@@ -1180,7 +1585,43 @@ async def approve_host(pending_host_id: int):
     4. Return success message
     """
     # TODO: Implement approve host logic
-    pass
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # 2. Get pending host
+        cursor.execute("SELECT * FROM pending_hosts WHERE id = %s", (pending_host_id,))
+        pending_host = cursor.fetchone()
+
+        if not pending_host:
+            raise HTTPException(status_code=404, detail="Pending host not found")
+
+        # 3. Insert into users
+        insert_query = """
+            INSERT INTO users (username, email, password, role, status, nid_image)
+            VALUES (%s, %s, %s, 'host', 'active', %s)
+        """
+        cursor.execute(insert_query, (
+            pending_host["username"],
+            pending_host["email"],
+            pending_host["password"],
+            pending_host["nid_image"]
+        ))
+        connection.commit()
+
+        # 4. Delete from pending_hosts
+        cursor.execute("DELETE FROM pending_hosts WHERE id = %s", (pending_host_id,))
+        connection.commit()
+
+        return {"message": "Host approved successfully"}
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 @app.delete("/api/admin/reject-host/{pending_host_id}")
 async def reject_host(pending_host_id: int):
@@ -1198,7 +1639,27 @@ async def reject_host(pending_host_id: int):
     2. Return success message
     """
     # TODO: Implement reject host logic
-    pass
+    try:
+        # 1. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        # 2. Delete pending host
+        cursor.execute("DELETE FROM pending_hosts WHERE id = %s", (pending_host_id,))
+        connection.commit()
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Pending host not found")
+
+        # 3. Return success message
+        return {"message": "Host application rejected"}
+
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 if __name__ == "__main__":
     import uvicorn
