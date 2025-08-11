@@ -97,7 +97,7 @@ const SpaceModal: React.FC<SpaceModalProps> = ({ space, onClose, userRole = 'gue
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-blue-600">
-                ${space.rate_per_hour}
+                <span className="w-2 h-8 inline-block text-lg font-semibold"><b>৳</b></span>&nbsp;{space.rate_per_hour}
                 <span className="text-sm font-normal text-gray-500">/hour</span>
               </div>
             </div>
