@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
 import { Interest } from '../../types';
-import { User, Heart, Clock, MapPin, DollarSign, X, Trash2, Home, Car } from 'lucide-react';
+import { User, Heart, Clock, MapPin, Trash2, Home, Car } from 'lucide-react';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -115,8 +115,9 @@ const Profile: React.FC = () => {
                         </div>
                         
                         <div className="flex items-center space-x-1">
-                          <DollarSign className="w-4 h-4" />
-                          <span>${interest.space_rate}/hour</span>
+                          {/* <DollarSign className="w-4 h-4" /> */}
+                          <span className="w-2 h-8 inline-block text-lg font-semibold">৳</span>
+                          <span>{interest.space_rate}/hour</span>
                         </div>
                         
                         {interest.hours_requested && (

@@ -424,7 +424,7 @@ export const mockApi = {
   async login(credentials: LoginCredentials): Promise<{ user: User; token: string }> {
     await delay(1000);
     
-    const user = users.find(u => u.username === credentials.username);
+    const user = users.find(u => u.email === credentials.email);
     if (!user) {
       throw new Error('Invalid username or password');
     }

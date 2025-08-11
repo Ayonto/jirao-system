@@ -52,7 +52,7 @@ async def login(request: Request):
     
     RECEIVES (from request body):
     {
-        "username": "string",
+        "email": "string",
         "password": "string"
     }
     
@@ -70,8 +70,8 @@ async def login(request: Request):
     }
     
     LOGIC TO IMPLEMENT:
-    1. Get username and password from request body
-    2. Check if user exists in database: SELECT * FROM users WHERE username = ?
+    1. Get email and password from request body
+    2. Check if user exists in database: SELECT * FROM users WHERE email = ?
     3. Return user info and a simple token (no real authentication needed)
     4. If user not found, raise HTTPException(status_code=401, detail="Invalid credentials")
     """
@@ -79,11 +79,11 @@ async def login(request: Request):
     try:
         # 1. Parse JSON body
         data = await request.json()
-        username = data.get("username")
+        email = data.get("email")
         password = data.get("password")
 
-        if not username or not password:
-            raise HTTPException(status_code=400, detail="Username and password required")
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and password required")
 
         # 2. Connect to MySQL
         connection = get_db_connection(); 
@@ -93,13 +93,17 @@ async def login(request: Request):
         query = """
         SELECT id, username, email, role, status, date_joined
         FROM users
-        WHERE username = %s AND password = %s
+        WHERE email = %s AND password = %s
         """
-        cursor.execute(query, (username, password))
+        cursor.execute(query, (email, password))
         user = cursor.fetchone()
 
         if not user:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise HTTPException(status_code=401, detail="Ivalid credentials")
+
+        if user["status"] == "banned": 
+            raise HTTPException(status_code=401, detail="User is Banned")
+
 
         # 4. Format datetime for JSON
         if isinstance(user["date_joined"], datetime):
@@ -108,7 +112,7 @@ async def login(request: Request):
         # 5. Return user info and a simple token
         return {
             "user": user,
-            "token": "simple_token_123"
+            "token": ""
         }
 
     except Error as e:
@@ -121,7 +125,7 @@ async def login(request: Request):
 
 
 @app.post("/api/auth/register")
-async def register():
+async def register(request: Request):
     """
     User registration endpoint.
     
@@ -131,6 +135,9 @@ async def register():
         "email": "string", 
         "password": "string",
         "role": "guest"  # 'guest' or 'host'
+        phone: "string" , 
+        nid_number: "string" # will be present only if role is host 
+
     }
     
     YOU NEED TO RETURN:
@@ -145,7 +152,89 @@ async def register():
     5. Return user info and token
     """
     # TODO: Implement registration logic
-    pass
+    
+
+    try:
+        # 1. Parse JSON body
+        data = await request.json()
+        username = data.get("username")
+        email = data.get("email")
+        password = data.get("password")
+        role = data.get("role")
+        phone = data.get("phone")
+        # accept either "nid" or "nid_number" from client
+        nid = data.get("nid") or data.get("nid_number")
+
+        # Basic validation
+        if not username or not email or not password or not role:
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        if role not in ("guest", "host"):
+            raise HTTPException(status_code=400, detail="Invalid role")
+
+        # 2. Connect to MySQL
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        # 3. Check if username/email already exists in users
+        check_users_q = "SELECT id FROM users WHERE username = %s OR email = %s"
+        cursor.execute(check_users_q, (username, email))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Username or email already exists")
+
+        # 3b. Also check pending_hosts to avoid duplicate host applications
+        cursor.execute("SELECT id FROM pending_hosts WHERE username = %s OR email = %s", (username, email))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Pending host application already exists for this username/email")
+
+        # 4. If host -> insert into pending_hosts and raise the required HTTPException
+        if role == "host":
+            if not nid:
+                raise HTTPException(status_code=400, detail="NID is required for host registration")
+
+            insert_pending_q = """
+            INSERT INTO pending_hosts (username, email, password, phone, nid)
+            VALUES (%s, %s, %s, %s, %s)
+            """
+            cursor.execute(insert_pending_q, (username, email, password, phone, nid))
+            connection.commit()
+
+            # Per spec: respond by raising 400 with this message
+            raise HTTPException(status_code=400, detail="Host application submitted. Please wait for admin approval.")
+
+        # 5. If guest -> insert into users with status 'active'
+        insert_guest_q = """
+        INSERT INTO users (username, email, password, role, status, phone)
+        VALUES (%s, %s, %s, 'guest', 'active', %s)
+        """
+        cursor.execute(insert_guest_q, (username, email, password, phone))
+        connection.commit()
+        user_id = cursor.lastrowid
+
+        # 6. Fetch the inserted user to return
+        cursor.execute("""
+        SELECT id, username, email, role, status, date_joined, phone, nid
+        FROM users
+        WHERE id = %s
+        """, (user_id,))
+        user = cursor.fetchone()
+
+        # 7. Format date_joined
+        if user and isinstance(user.get("date_joined"), datetime):
+            user["date_joined"] = user["date_joined"].isoformat() + "Z"
+
+        # 8. Return guest info + token (simple token as requested)
+        return {
+            "user": user,
+            "token": "simple_token_register"
+        }
+
+    except Error as e:
+        # Database / connector errors
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 @app.post("/api/auth/admin-login")
 async def admin_login(request: Request):
@@ -467,7 +556,7 @@ async def create_space(request: Request):
         raise HTTPException(status_code=500, detail="Database connection failed")
 
     try:
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
         insert_query = """
             INSERT INTO spaces
             (owner_id, type, title, location, rate_per_hour, description, availability, dimensions)
@@ -1529,7 +1618,8 @@ async def get_pending_hosts():
             "id": 123,
             "username": "pending_host",
             "email": "host@example.com",
-            "nid_image": "base64_image_string",
+            "nid": "string",
+            "phone": "string" , 
             "date_applied": "2024-01-15T10:30:00Z"
         }
     ]
@@ -1546,7 +1636,7 @@ async def get_pending_hosts():
 
         # 2. Query all pending hosts
         query = """
-        SELECT id, username, email, nid_image, date_applied
+        SELECT id, username, email, nid, phone, date_applied
         FROM pending_hosts
         """
         cursor.execute(query)
@@ -1599,14 +1689,15 @@ async def approve_host(pending_host_id: int):
 
         # 3. Insert into users
         insert_query = """
-            INSERT INTO users (username, email, password, role, status, nid_image)
-            VALUES (%s, %s, %s, 'host', 'active', %s)
+            INSERT INTO users (username, email, password, role, status, nid, phone)
+            VALUES (%s, %s, %s, 'host', 'active', %s, %s)
         """
         cursor.execute(insert_query, (
             pending_host["username"],
             pending_host["email"],
             pending_host["password"],
-            pending_host["nid_image"]
+            pending_host["nid"], 
+            pending_host["phone"],
         ))
         connection.commit()
 

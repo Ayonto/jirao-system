@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { Space, Interest } from '../../types';
-import { X, MapPin, DollarSign, Home, Car, Users, Mail, Clock, Settings, AlertTriangle, Edit, Save, FileText } from 'lucide-react';
+import { X, MapPin, Home, Car, Users, Mail, Clock, Settings, AlertTriangle, Edit, Save, FileText } from 'lucide-react';
 import { Check, X as XIcon } from 'lucide-react';
 import ReportModal from '../Common/ReportModal';
 
@@ -96,6 +96,7 @@ const ManageSpaceModal: React.FC<ManageSpaceModalProps> = ({ space, onClose, onS
     setUpdating(true);
     try {
       const updateData = space.type === 'parking' ? editFormData : { ...editFormData, dimensions: undefined };
+      console.log(updateData);
       await api.updateSpace(space.id, updateData);
       setIsEditing(false);
       onSpaceUpdated();
@@ -253,7 +254,8 @@ const ManageSpaceModal: React.FC<ManageSpaceModalProps> = ({ space, onClose, onS
                     Hourly Rate *
                   </label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    {/* <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" /> */}
+                    <span className="w-2 h-7 inline-block text-lg font-semibold">৳</span>
                     <input
                       id="rate_per_hour"
                       name="rate_per_hour"
@@ -398,8 +400,9 @@ const ManageSpaceModal: React.FC<ManageSpaceModalProps> = ({ space, onClose, onS
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate</label>
                   <div className="flex items-center space-x-2 text-lg font-semibold text-gray-900">
-                    <DollarSign className="w-5 h-5" />
-                    <span>${space.rate_per_hour}/hour</span>
+                    {/* <DollarSign className="w-5 h-5" /> */}
+                    <span className="w-2 h-7 inline-block text-lg font-semibold"><b>৳</b></span>
+                    <span>{space.rate_per_hour}/hour</span>
                   </div>
                 </div>
 

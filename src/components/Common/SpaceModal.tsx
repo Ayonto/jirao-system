@@ -1,7 +1,7 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
 import React, { useState } from 'react';
-import { X, MapPin, Users, Calendar, Clock, Star, Flag, DollarSign, Home, Car } from 'lucide-react';
+import { X, MapPin, Users, Calendar, Clock, Star, Flag, Home, Car } from 'lucide-react';
 import { Space } from '../../types';
 
 interface SpaceModalProps {
@@ -152,9 +152,10 @@ const SpaceModal: React.FC<SpaceModalProps> = ({ space, onClose, userRole = 'gue
           <div className="mb-6">
             <div className="flex items-center space-x-2 text-lg font-semibold text-gray-900">
               {/* <DollarSign className="w-5 h-5" /> */}
-              <span className="w-5 h-5 inline-block text-lg font-semibold">TK</span>
+              {/* <span className="w-5 h-5 inline-block text-lg font-semibold">TK</span> */}
+              <span className="w-2 h-7 inline-block text-lg font-semibold"><b>৳</b></span>
 
-              <span>৳{space.rate_per_hour}/hour</span>
+              <span>&nbsp;{space.rate_per_hour}/hour</span>
             </div>
           </div>
 

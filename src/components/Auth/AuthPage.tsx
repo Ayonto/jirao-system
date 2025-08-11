@@ -32,7 +32,7 @@ const AuthPage: React.FC = () => {
     
     try {
       if (isLogin) {
-        await login({ username: formData.username, password: formData.password });
+        await login({ email: formData.email, password: formData.password });
       } else {
         await register(formData);
       }
@@ -105,39 +105,39 @@ const AuthPage: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                Username
-              </label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                value={formData.username}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
-                placeholder="Enter your username"
-              />
-            </div>
-
             {!isLogin && (
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                  Username
                 </label>
                 <input
-                  id="email"
-                  name="email"
-                  type="email"
+                  id="username"
+                  name="username"
+                  type="text"
                   required={!isLogin}
-                  value={formData.email}
+                  value={formData.username}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  placeholder="Enter your email"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors"
+                  placeholder="Choose a username"
                 />
               </div>
             )}
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={formData.email}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                placeholder={isLogin ? "Enter your email to sign in" : "Enter your email"}
+              />
+            </div>
 
 
             {!isLogin && (
@@ -293,13 +293,13 @@ const AuthPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-700">
             <div className="bg-white rounded p-2">
               <p className="font-medium">Guest Account:</p>
-              <p>Username: john_guest</p>
-              <p>Password: any</p>
+              <p>Email: ratul@gmail.com</p>
+              <p>Password: 1234</p>
             </div>
             <div className="bg-white rounded p-2">
               <p className="font-medium">Host Account:</p>
-              <p>Username: sarah_host</p>
-              <p>Password: any</p>
+              <p>Email: mehedi12@gmail.com</p>
+              <p>Password: 1234</p>
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { User, Space, Interest, LoginCredentials, RegisterData, CreateSpaceData, Report, CreateReportData, AdminLoginCredentials, PendingHost } from '../types';
+import { User, Space, Interest, LoginCredentials, RegisterData, CreateSpaceData, UpdateSpaceData, Report, CreateReportData, AdminLoginCredentials, PendingHost } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -12,8 +12,33 @@ const getAuthHeaders = () => {
 // Helper function to handle API responses
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'An error occurred' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    let payload: any = null;
+    let textFallback: string | undefined;
+    try {
+      payload = await response.json();
+    } catch (_) {
+      try {
+        textFallback = await response.text();
+      } catch (_) {
+        // ignore
+      }
+    }
+
+    // Prefer FastAPI's HTTPException detail
+    let serverMessage: string | undefined;
+    if (payload) {
+      if (typeof payload.detail === 'string') {
+        serverMessage = payload.detail;
+      } else if (Array.isArray(payload.detail)) {
+        // FastAPI/Pydantic validation errors: detail is an array
+        serverMessage = payload.detail[0]?.msg || payload.detail[0]?.message;
+      } else {
+        serverMessage = payload.message || payload.error || payload.errors?.[0]?.message;
+      }
+    }
+
+    const fallback = textFallback || response.statusText || `HTTP ${response.status}`;
+    throw new Error(serverMessage || fallback);
   }
   return response.json();
 };
@@ -30,10 +55,20 @@ export const api = {
   },
 
   async register(data: RegisterData): Promise<{ user: User; token: string }> {
+    // Send phone always if present; include nid_number only for hosts
+    const payload: Record<string, unknown> = {
+      username: data.username,
+      email: data.email,
+      password: data.password,
+      role: data.role,
+      ...(data.phone ? { phone: data.phone } : {}),
+      ...(data.role === 'host' && data.nid_number ? { nid_number: data.nid_number } : {})
+    };
+
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(payload)
     });
     return handleResponse(response);
   },
@@ -93,6 +128,15 @@ export const api = {
     body: JSON.stringify(payload)
   });
   return handleResponse(response);
+  },
+
+  async updateSpace(spaceId: number, data: UpdateSpaceData): Promise<Space> {
+    const response = await fetch(`${API_BASE_URL}/spaces/${spaceId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    return handleResponse(response);
   },
 
   async updateSpaceAvailability(spaceId: number, availability: Space['availability']): Promise<Space> {

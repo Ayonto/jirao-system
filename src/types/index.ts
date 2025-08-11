@@ -70,7 +70,7 @@ export interface AuthState {
 }
 
 export interface LoginCredentials {
-  username: string;
+  email: string;
   password: string;
 }
 
@@ -80,6 +80,7 @@ export interface RegisterData {
   password: string;
   role: 'guest' | 'host';
   phone?: string;
+  nid_number?: string; // only required for host sign-up on the UI
 }
 
 export interface CreateSpaceData {
@@ -89,6 +90,20 @@ export interface CreateSpaceData {
   rate_per_hour: number;
   description: string;
   availability: 'available' | 'on_hold' | 'not_available';
+  // Parking-specific fields
+  dimensions?: {
+    length: number;
+    width: number;
+    height: number;
+  };
+}
+
+
+export interface UpdateSpaceData {
+  title: string;
+  location: string;
+  rate_per_hour: number;
+  description: string;
   // Parking-specific fields
   dimensions?: {
     length: number;
