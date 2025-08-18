@@ -4,6 +4,8 @@ import { Space, Interest } from '../../types';
 import { X, MapPin, Home, Car, Users, Mail, Clock, Settings, AlertTriangle, Edit, Save, FileText } from 'lucide-react';
 import { Check, X as XIcon } from 'lucide-react';
 import ReportModal from '../Common/ReportModal';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 
 interface ManageSpaceModalProps {
   space: Space;
@@ -25,10 +27,21 @@ const ManageSpaceModal: React.FC<ManageSpaceModalProps> = ({ space, onClose, onS
   const [editFormData, setEditFormData] = useState({
     title: space.title,
     location: space.location,
+    latitude: space.latitude,
+    longitude: space.longitude,
     rate_per_hour: space.rate_per_hour,
     description: space.description,
     dimensions: space.dimensions || { length: 0, width: 0, height: 0 }
   });
+
+  const defaultCenter: [number, number] = [
+    space.latitude ?? 23.8103,
+    space.longitude ?? 90.4125
+  ];
+  const markerPosition: [number, number] | null =
+    editFormData.latitude !== undefined && editFormData.longitude !== undefined
+      ? [editFormData.latitude, editFormData.longitude]
+      : null;
 
   const loadInterests = async () => {
     setLoading(true);
@@ -78,6 +91,16 @@ const ManageSpaceModal: React.FC<ManageSpaceModalProps> = ({ space, onClose, onS
     }
   };
 
+  const ClickPicker: React.FC = () => {
+    useMapEvents({
+      click(e: L.LeafletMouseEvent) {
+        const { lat, lng } = e.latlng;
+        setEditFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+      }
+    });
+    return null;
+  };
+
   const handleSaveChanges = async () => {
     // Validation
     if (!editFormData.title.trim() || !editFormData.location.trim() || !editFormData.description.trim() || editFormData.rate_per_hour <= 0) {
@@ -112,6 +135,8 @@ const ManageSpaceModal: React.FC<ManageSpaceModalProps> = ({ space, onClose, onS
     setEditFormData({
       title: space.title,
       location: space.location,
+      latitude: space.latitude,
+      longitude: space.longitude,
       rate_per_hour: space.rate_per_hour,
       description: space.description,
       dimensions: space.dimensions || { length: 0, width: 0, height: 0 }
@@ -245,6 +270,28 @@ const ManageSpaceModal: React.FC<ManageSpaceModalProps> = ({ space, onClose, onS
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                       placeholder="e.g., Manhattan, Brooklyn"
                     />
+                  </div>
+                  <div className="mt-4">
+                    <div className="text-xs text-gray-600 mb-2">Optionally adjust exact spot on the map</div>
+                    <div className="h-64 rounded-xl overflow-hidden border border-gray-200">
+                      <MapContainer center={markerPosition || defaultCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <ClickPicker />
+                        {markerPosition && (
+                          <Marker position={markerPosition} icon={new L.Icon.Default()} />
+                        )}
+                      </MapContainer>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">
+                      {editFormData.latitude !== undefined && editFormData.longitude !== undefined ? (
+                        <span>Lat: {editFormData.latitude.toFixed(6)}, Lng: {editFormData.longitude.toFixed(6)}</span>
+                      ) : (
+                        <span>Click on the map to set coordinates</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

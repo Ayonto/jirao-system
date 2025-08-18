@@ -542,6 +542,8 @@ async def create_space(request: Request):
     description = data["description"]
     availability = data["availability"]
     dimensions = data.get("dimensions")
+    latitude = data.get("latitude")
+    longitude = data.get("longitude")
 
     # Serialize dimensions if parking and dimensions present
     dimensions_json = None
@@ -559,11 +561,11 @@ async def create_space(request: Request):
         cursor = conn.cursor(dictionary=True)
         insert_query = """
             INSERT INTO spaces
-            (owner_id, type, title, location, rate_per_hour, description, availability, dimensions)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            (owner_id, type, title, location, latitude, longitude, rate_per_hour, description, availability, dimensions)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(insert_query, (
-            owner_id, type_, title, location, rate_per_hour, description, availability, dimensions_json
+            owner_id, type_, title, location, latitude, longitude, rate_per_hour, description, availability, dimensions_json
         ))
         conn.commit()
 
@@ -673,18 +675,24 @@ async def update_space(space_id: int, request: Request):
             except Exception:
                 raise HTTPException(status_code=422, detail="Invalid dimensions format")
 
+        # Latitude/Longitude: keep existing if not provided
+        latitude = data.get("latitude", space.get("latitude") if isinstance(space, dict) else None)
+        longitude = data.get("longitude", space.get("longitude") if isinstance(space, dict) else None)
+
         # Update query
         update_query = """
             UPDATE spaces
             SET title = %s,
                 location = %s,
+                latitude = %s,
+                longitude = %s,
                 rate_per_hour = %s,
                 description = %s,
                 dimensions = %s
             WHERE id = %s
         """
         cursor.execute(update_query, (
-            title, location, rate_per_hour, description, dimensions_json, space_id
+            title, location, latitude, longitude, rate_per_hour, description, dimensions_json, space_id
         ))
         conn.commit()
 

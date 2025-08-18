@@ -1,6 +1,7 @@
 import { User, Space, Interest, LoginCredentials, RegisterData, CreateSpaceData, UpdateSpaceData, Report, CreateReportData, AdminLoginCredentials, PendingHost } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000/api';
+// const API_BASE_URL = 'http://192.168.0.101:8000/api';
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {

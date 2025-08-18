@@ -3,6 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
 import { CreateSpaceData } from '../../types';
 import { X, Home, Car, MapPin, FileText, Loader } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 
 interface CreateSpaceModalProps {
   onClose: () => void;
@@ -16,6 +18,8 @@ const CreateSpaceModal: React.FC<CreateSpaceModalProps> = ({ onClose, onSpaceCre
     type: 'room',
     title: '',
     location: '',
+    latitude: undefined,
+    longitude: undefined,
     rate_per_hour: 0,
     description: '',
     availability: 'available',
@@ -25,6 +29,12 @@ const CreateSpaceModal: React.FC<CreateSpaceModalProps> = ({ onClose, onSpaceCre
       height: 0
     }
   });
+
+  const defaultCenter: [number, number] = [23.8103, 90.4125]; // Dhaka
+  const markerPosition: [number, number] | null =
+    formData.latitude !== undefined && formData.longitude !== undefined
+      ? [formData.latitude, formData.longitude]
+      : null;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -56,6 +66,11 @@ const CreateSpaceModal: React.FC<CreateSpaceModalProps> = ({ onClose, onSpaceCre
       return;
     }
 
+    if (formData.latitude === undefined || formData.longitude === undefined) {
+      alert('Please pick a location on the map');
+      return;
+    }
+
     // Additional validation for parking spaces
     if (formData.type === 'parking') {
       if (!formData.dimensions || formData.dimensions.length <= 0 || formData.dimensions.width <= 0 || formData.dimensions.height <= 0) {
@@ -75,6 +90,16 @@ const CreateSpaceModal: React.FC<CreateSpaceModalProps> = ({ onClose, onSpaceCre
     } finally {
       setLoading(false);
     }
+  };
+
+  const ClickPicker: React.FC = () => {
+    useMapEvents({
+      click(e: L.LeafletMouseEvent) {
+        const { lat, lng } = e.latlng;
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+      }
+    });
+    return null;
   };
 
   return (
@@ -161,6 +186,28 @@ const CreateSpaceModal: React.FC<CreateSpaceModalProps> = ({ onClose, onSpaceCre
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                   placeholder="e.g., Manhattan, Brooklyn, Downtown NYC"
                 />
+              </div>
+              <div className="mt-4">
+                <div className="text-xs text-gray-600 mb-2">Pick exact spot on the map</div>
+                <div className="h-64 rounded-xl overflow-hidden border border-gray-200">
+                  <MapContainer center={markerPosition || defaultCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <ClickPicker />
+                    {markerPosition && (
+                      <Marker position={markerPosition} icon={new L.Icon.Default()} />
+                    )}
+                  </MapContainer>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  {formData.latitude !== undefined && formData.longitude !== undefined ? (
+                    <span>Lat: {formData.latitude.toFixed(6)}, Lng: {formData.longitude.toFixed(6)}</span>
+                  ) : (
+                    <span>Click on the map to set coordinates</span>
+                  )}
+                </div>
               </div>
             </div>
 
