@@ -269,10 +269,11 @@ export const api = {
     return handleResponse(response);
   },
 
-  async approveHost(pendingHostId: number): Promise<void> {
+  async approveHost(pendingHostId: number, adminId: number): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/admin/approve-host/${pendingHostId}`, {
       method: 'POST',
-      headers: getAuthHeaders()
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ admin_id: adminId })
     });
     await handleResponse(response);
   },

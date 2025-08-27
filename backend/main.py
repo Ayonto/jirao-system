@@ -1216,7 +1216,6 @@ async def create_report(request: Request):
     {
         "reporter_id": 1,
         "reported_id": 123,
-        "space_id": 456,  # optional
         "reason": "User was inappropriate"
     }
     
@@ -1262,12 +1261,14 @@ async def create_report(request: Request):
         # 3. Get reporter details
         cursor.execute("SELECT id, username, email, role FROM users WHERE id = %s", (reporter_id,))
         reporter = cursor.fetchone()
+        # reporter_role = reporter["role"]
         if not reporter:
             raise HTTPException(status_code=404, detail="Reporter not found")
 
         # 4. Get reported user details
         cursor.execute("SELECT id, username, email, role FROM users WHERE id = %s", (reported_id,))
         reported = cursor.fetchone()
+        # reported_role = reported["role"]
         if not reported:
             raise HTTPException(status_code=404, detail="Reported user not found")
 
@@ -1279,17 +1280,24 @@ async def create_report(request: Request):
                 reason += f" (Listing: {space['title']})"
 
         # 6. Insert report
+        # insert_query = """
+        # INSERT INTO reports (reporter_id, reported_id, reporter_role, reported_role, reason, timestamp)
+        # VALUES (%s, %s, %s, %s, %s, NOW())
+        # """
+        # cursor.execute(insert_query, (
+        #     reporter_id,
+        #     reported_id,
+        #     reporter["role"],
+        #     reported["role"],
+        #     reason
+        # ))
+
         insert_query = """
-        INSERT INTO reports (reporter_id, reported_id, reporter_role, reported_role, reason, timestamp)
-        VALUES (%s, %s, %s, %s, %s, NOW())
+        INSERT INTO reports (reporter_id, reported_id, reason, timestamp)
+        VALUES (%s, %s, %s, NOW())
         """
-        cursor.execute(insert_query, (
-            reporter_id,
-            reported_id,
-            reporter["role"],
-            reported["role"],
-            reason
-        ))
+        cursor.execute(insert_query, (reporter_id, reported_id, reason))    
+        
         connection.commit()
         report_id = cursor.lastrowid
 
@@ -1339,26 +1347,53 @@ async def get_reports():
         cursor = connection.cursor(dictionary=True)
 
         # 2. Query reports with reporter & reported user details
+        # query = """
+        # SELECT
+        #     r.id,
+        #     r.reporter_id,
+        #     r.reported_id,
+        #     r.reporter_role,
+        #     r.reported_role,
+        #     r.reason,
+        #     DATE_FORMAT(r.timestamp, '%Y-%m-%dT%H:%i:%sZ') AS timestamp,
+        #     reporter.username AS reporter_name,
+        #     reported.username AS reported_name,
+        #     reporter.email AS reporter_email,
+        #     reported.email AS reported_email
+        # FROM reports r
+        # JOIN users reporter ON r.reporter_id = reporter.id
+        # JOIN users reported ON r.reported_id = reported.id
+        # ORDER BY r.timestamp DESC
+        # """
+        # cursor.execute(query)
+        # reports = cursor.fetchall()
+        
         query = """
-        SELECT
-            r.id,
-            r.reporter_id,
-            r.reported_id,
-            r.reporter_role,
-            r.reported_role,
-            r.reason,
-            DATE_FORMAT(r.timestamp, '%Y-%m-%dT%H:%i:%sZ') AS timestamp,
-            reporter.username AS reporter_name,
-            reported.username AS reported_name,
-            reporter.email AS reporter_email,
-            reported.email AS reported_email
-        FROM reports r
-        JOIN users reporter ON r.reporter_id = reporter.id
-        JOIN users reported ON r.reported_id = reported.id
-        ORDER BY r.timestamp DESC
+        SELECT reporter_id, reported_id, reason, DATE_FORMAT(timestamp, '%Y-%m-%dT%H:%i:%sZ') AS timestamp FROM reports
         """
         cursor.execute(query)
         reports = cursor.fetchall()
+
+        query2 = """
+        SELECT * FROM users WHERE id = %s
+        """
+        cursor.execute(query2, (reports[0]["reporter_id"],))
+        reporter_role = cursor.fetchone()
+        cursor.execute(query2, (reports[0]["reported_id"],))
+        reported_role = cursor.fetchone()
+
+        payload = {
+            "reporter_id": reports[0]["reporter_id"],
+            "reported_id": reports[0]["reported_id"],
+            "reporter_role": reporter_role["role"],
+            "reported_role": reported_role["role"],
+            "reason": reports[0]["reason"],
+            "timestamp": reports[0]["timestamp"],
+            "reporter_name": reporter_role["username"],
+            "reported_name": reported_role["username"],
+            "reporter_email": reporter_role["email"],
+            "reported_email": reported_role["email"]
+        }
 
         return reports
 
@@ -1646,6 +1681,7 @@ async def get_pending_hosts():
         query = """
         SELECT id, username, email, nid, phone, date_applied
         FROM pending_hosts
+        WHERE admin_id IS NULL
         """
         cursor.execute(query)
         pending_hosts = cursor.fetchall()
@@ -1666,12 +1702,13 @@ async def get_pending_hosts():
             connection.close()
 
 @app.post("/api/admin/approve-host/{pending_host_id}")
-async def approve_host(pending_host_id: int):
+async def approve_host(pending_host_id: int, request: Request):
     """
     Approve a pending host application.
     
     RECEIVES (path parameter):
     - pending_host_id: int
+    - admin_id: int
     
     YOU NEED TO RETURN:
     {"message": "Host approved successfully"}
@@ -1684,6 +1721,12 @@ async def approve_host(pending_host_id: int):
     """
     # TODO: Implement approve host logic
     try:
+        data = await request.json()
+        admin_id = data.get("admin_id")
+
+        if not admin_id:
+            raise HTTPException(status_code=400, detail="admin_id is required")
+
         # 1. Connect to MySQL
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
@@ -1709,8 +1752,17 @@ async def approve_host(pending_host_id: int):
         ))
         connection.commit()
 
-        # 4. Delete from pending_hosts
-        cursor.execute("DELETE FROM pending_hosts WHERE id = %s", (pending_host_id,))
+        # # 4. Delete from pending_hosts
+        # cursor.execute("DELETE FROM pending_hosts WHERE id = %s", (pending_host_id,))
+        # connection.commit()
+
+        # update pending host admin_id
+        update_query = """
+        UPDATE pending_hosts
+        SET admin_id = %s
+        WHERE id = %s
+        """
+        cursor.execute(update_query, (admin_id, pending_host_id))
         connection.commit()
 
         return {"message": "Host approved successfully"}
