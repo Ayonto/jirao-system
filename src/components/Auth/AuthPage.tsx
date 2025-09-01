@@ -288,7 +288,7 @@ const AuthPage: React.FC = () => {
         </div>
 
         {/* Demo Accounts */}
-        <div className="bg-gray-50 rounded-lg p-4">
+        {/* <div className="bg-gray-50 rounded-lg p-4">
           <p className="text-xs text-gray-600 text-center mb-2 font-medium">Demo Accounts (for testing)</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-700">
             <div className="bg-white rounded p-2">
@@ -302,7 +302,7 @@ const AuthPage: React.FC = () => {
               <p>Password: 1234</p>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

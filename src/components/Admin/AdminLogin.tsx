@@ -137,13 +137,13 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, onBackToMain }) => {
         </div>
 
         {/* Demo Account */}
-        <div className="bg-gray-50 rounded-lg p-4">
+        {/* <div className="bg-gray-50 rounded-lg p-4">
           <p className="text-xs text-gray-600 text-center mb-2 font-medium">Demo Admin Account</p>
           <div className="bg-white rounded p-2 text-xs text-gray-700 text-center">
             <p className="font-medium">Username: admin_jirao</p>
             <p>Password: admin123</p>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

@@ -48,15 +48,13 @@ async def test():
 @app.post("/api/auth/login")
 async def login(request: Request):
     """
-    User login endpoint.
-    
-    RECEIVES (from request body):
+    Body
     {
         "email": "string",
         "password": "string"
     }
     
-    YOU NEED TO RETURN:
+    Return
     {
         "user": {
             "id": 1,
@@ -69,13 +67,8 @@ async def login(request: Request):
         "token": "simple_token_123"  # Just return any string as token
     }
     
-    LOGIC TO IMPLEMENT:
-    1. Get email and password from request body
-    2. Check if user exists in database: SELECT * FROM users WHERE email = ?
-    3. Return user info and a simple token (no real authentication needed)
-    4. If user not found, raise HTTPException(status_code=401, detail="Invalid credentials")
     """
-    # TODO: Implement login logic
+
     try:
         # 1. Parse JSON body
         data = await request.json()
@@ -99,7 +92,7 @@ async def login(request: Request):
         user = cursor.fetchone()
 
         if not user:
-            raise HTTPException(status_code=401, detail="Ivalid credentials")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
 
         if user["status"] == "banned": 
             raise HTTPException(status_code=401, detail="User is Banned")
@@ -127,9 +120,8 @@ async def login(request: Request):
 @app.post("/api/auth/register")
 async def register(request: Request):
     """
-    User registration endpoint.
     
-    RECEIVES (from request body):
+    Body
     {
         "username": "string",
         "email": "string", 
@@ -139,19 +131,8 @@ async def register(request: Request):
         nid_number: "string" # will be present only if role is host 
 
     }
-    
-    YOU NEED TO RETURN:
-    For guests: Same as login response
-    For hosts: Raise HTTPException(status_code=400, detail="Host application submitted. Please wait for admin approval.")
-    
-    LOGIC TO IMPLEMENT:
-    1. Get data from request body
-    2. Check if username/email already exists: SELECT * FROM users WHERE username = ? OR email = ?
-    3. If role is 'host', insert into pending_hosts table and raise error
-    4. If role is 'guest', insert into users table: INSERT INTO users (username, email, password, role, status) VALUES (?, ?, ?, ?, 'active')
-    5. Return user info and token
+
     """
-    # TODO: Implement registration logic
     
 
     try:
@@ -239,22 +220,13 @@ async def register(request: Request):
 @app.post("/api/auth/admin-login")
 async def admin_login(request: Request):
     """
-    Admin login endpoint.
-    
-    RECEIVES (from request body):
+    Body
     {
         "username": "string",
         "password": "string"
     }
     
-    YOU NEED TO RETURN:
-    Same as regular login but only for admin users
-    
-    LOGIC TO IMPLEMENT:
-    1. Get username and password from request body
-    2. Check if user exists and role is 'admin': SELECT * FROM users WHERE username = ? AND role = 'admin'
-    3. Check if status is not 'banned'
-    4. Return user info and token
+
     """
     # TODO: Implement admin login logic
     
@@ -310,12 +282,11 @@ async def admin_login(request: Request):
 @app.get("/api/spaces")
 async def get_spaces(location: str = None):
     """
-    Get available spaces with optional location filter.
     
-    RECEIVES (query parameters):
-    - location: string (optional) - e.g., ?location=Manhattan
+    Body
+    - location
     
-    YOU NEED TO RETURN:
+    Return
     [
         {
             "id": 1,
@@ -331,15 +302,9 @@ async def get_spaces(location: str = None):
         }
     ]
     
-    LOGIC TO IMPLEMENT:
-    1. Query spaces where availability = 'available'
-    2. If location provided, add WHERE location LIKE '%location%'
-    3. Join with users table: SELECT s.*, u.username as owner_name FROM spaces s JOIN users u ON s.owner_id = u.id
-    4. For parking spaces, parse dimensions JSON
-    5. Return array of spaces
+
     """
-    # TODO: Implement get spaces logic
-    
+
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database connection failed")
@@ -383,18 +348,10 @@ async def get_spaces(location: str = None):
 @app.get("/api/spaces/{space_id}")
 async def get_space_by_id(space_id: int):
     """
-    Get single space by ID.
+    Receive
+    - space_id
     
-    RECEIVES (path parameter):
-    - space_id: int - from URL like /api/spaces/123
-    
-    YOU NEED TO RETURN:
-    Same format as single space in get_spaces
-    
-    LOGIC TO IMPLEMENT:
-    1. Query space by ID: SELECT s.*, u.username as owner_name FROM spaces s JOIN users u ON s.owner_id = u.id WHERE s.id = ?
-    2. If not found, raise HTTPException(status_code=404, detail="Space not found")
-    3. Return space object
+
     """
     # TODO: Implement get space by ID logic
     conn = get_db_connection()
@@ -437,19 +394,12 @@ async def get_space_by_id(space_id: int):
 @app.get("/api/spaces/host/{owner_id}")
 async def get_host_spaces(owner_id: int):
     """
-    Get all spaces owned by a host.
+    receives
+    - owner_id
     
-    RECEIVES (path parameter):
-    - owner_id: int - from URL like /api/spaces/host/123
-    
-    YOU NEED TO RETURN:
-    Array of spaces (same format as get_spaces) but including all availability statuses
-    
-    LOGIC TO IMPLEMENT:
-    1. Query all spaces where owner_id matches: SELECT s.*, u.username as owner_name FROM spaces s JOIN users u ON s.owner_id = u.id WHERE s.owner_id = ?
-    2. Return array of spaces
+    Return same as get_spaces
     """
-    # TODO: Implement get host spaces logic
+
     
     conn = get_db_connection()
     if not conn:
@@ -487,9 +437,8 @@ async def get_host_spaces(owner_id: int):
 @app.post("/api/spaces")
 async def create_space(request: Request):
     """
-    Create a new space.
     
-    RECEIVES (from request body):
+    body
     {
         "type": "room",  # 'room' or 'parking'
         "title": "My Room",
@@ -500,7 +449,7 @@ async def create_space(request: Request):
         "dimensions": {"length": 20, "width": 10, "height": 8}  # optional, only for parking
     }
     
-    YOU NEED TO RETURN:
+    Return
     {
         "id": 123,
         "owner_id": 2,
@@ -514,12 +463,7 @@ async def create_space(request: Request):
         "dimensions": null  # or dimensions object for parking
     }
     
-    LOGIC TO IMPLEMENT:
-    1. Get data from request body
-    2. Get owner_id from token/session (for now, you can hardcode or get from request)
-    3. Insert new space: INSERT INTO spaces (owner_id, type, title, location, rate_per_hour, description, availability, dimensions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    4. Get the created space with owner name
-    5. Return the created space
+
     """
     # TODO: Implement create space logic
     
@@ -600,10 +544,10 @@ async def create_space(request: Request):
 @app.put("/api/spaces/{space_id}")
 async def update_space(space_id: int, request: Request):
     """
-    Update an existing space.
+
+    receive
     
-    RECEIVES (path parameter):
-    - space_id: int - from URL like /api/spaces/123
+    - space_id
     
     RECEIVES (from request body):
     {
@@ -614,7 +558,7 @@ async def update_space(space_id: int, request: Request):
         "dimensions": {"length": 25, "width": 12, "height": 9}  # optional, only for parking
     }
     
-    YOU NEED TO RETURN:
+    return 
     {
         "id": 123,
         "owner_id": 2,
@@ -628,15 +572,9 @@ async def update_space(space_id: int, request: Request):
         "dimensions": null  # or dimensions object for parking
     }
     
-    LOGIC TO IMPLEMENT:
-    1. Get space_id from URL parameter
-    2. Get update data from request body
-    3. Check if space exists: SELECT * FROM spaces WHERE id = ?
-    4. Update space: UPDATE spaces SET title = ?, location = ?, rate_per_hour = ?, description = ?, dimensions = ? WHERE id = ?
-    5. Get updated space with owner name
-    6. Return updated space
+
     """
-    # TODO: Implement update space logic
+
     try:
         data = await request.json()
     except Exception:
@@ -728,20 +666,15 @@ async def update_space(space_id: int, request: Request):
 @app.put("/api/spaces/{space_id}/availability")
 async def update_space_availability(space_id: int, request: Request):
     """
-    Update space availability.
     
-    RECEIVES:
+    
+    receive
     - space_id: int (path parameter)
     - Request body: {"availability": "on_hold"}  # 'available', 'on_hold', 'not_available'
     
-    YOU NEED TO RETURN:
-    Updated space object (same format as create_space)
     
-    LOGIC TO IMPLEMENT:
-    1. Get availability from request body
-    2. Update space: UPDATE spaces SET availability = ? WHERE id = ?
-    3. Get updated space with owner name
-    4. Return updated space
+    Return same as create_space
+
     """
     # TODO: Implement update availability logic
     
@@ -808,16 +741,15 @@ async def update_space_availability(space_id: int, request: Request):
 @app.post("/api/interests")
 async def express_interest(request: Request):
     """
-    Express interest in a space.
     
-    RECEIVES (from request body):
+    body
     {
         "user_id: userId, 
         "space_id": 123,
         "hours_requested": 4  # optional - can be null/undefined
     }
     
-    YOU NEED TO RETURN:
+    Return
     {
         "id": 456,
         "user_id": 1,
@@ -832,19 +764,10 @@ async def express_interest(request: Request):
         "space_location": "Manhattan",
         "space_rate": 15.0
     }
-    
-    LOGIC TO IMPLEMENT:
-    1. Get space_id and hours_requested from request body
-    2. Get user_id 
-    3. Check if already interested: SELECT * FROM interests WHERE user_id = ? AND space_id = ?
-    4. If exists, raise HTTPException(status_code=400, detail="Already interested")
-    5. Insert interest: INSERT INTO interests (user_id, space_id, hours_requested, status) VALUES (?, ?, ?, 'pending')
-    6. Get interest with user and space details using JOINs
-    7. Return interest object
     """
-    # TODO: Implement express interest logic
+
     try:
-        # 1. Parse JSON body
+
         data = await request.json()
         user_id = data.get("user_id")
         space_id = data.get("space_id")
@@ -853,11 +776,9 @@ async def express_interest(request: Request):
         if not user_id or not space_id:
             raise HTTPException(status_code=400, detail="user_id and space_id are required")
 
-        # 2. Connect to MySQL
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
 
-        # 3. Check if already interested
         check_query = """
         SELECT id FROM interests WHERE user_id = %s AND space_id = %s
         """
@@ -865,7 +786,7 @@ async def express_interest(request: Request):
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="Already interested")
 
-        # 4. Insert interest
+
         insert_query = """
         INSERT INTO interests (user_id, space_id, hours_requested, status)
         VALUES (%s, %s, %s, 'pending')
@@ -874,7 +795,7 @@ async def express_interest(request: Request):
         connection.commit()
         interest_id = cursor.lastrowid
 
-        # 5. Retrieve interest with user and space details
+
         select_query = """
         SELECT 
             i.id, 
@@ -915,12 +836,13 @@ async def express_interest(request: Request):
 @app.get("/api/interests/user/{user_id}")
 async def get_user_interests(user_id: int):
     """
-    Get all interests for a user.
+
     
-    RECEIVES (path parameter):
-    - user_id: int
-    
-    YOU NEED TO RETURN:
+    receive
+    - user_id
+
+
+    return
     [
         {
             "id": 456,
@@ -936,13 +858,9 @@ async def get_user_interests(user_id: int):
         }
     ]
     
-    LOGIC TO IMPLEMENT:
-    1. Query interests with space details: 
-       SELECT i.*, s.title as space_title, s.location as space_location, s.rate_per_hour as space_rate
-       FROM interests i JOIN spaces s ON i.space_id = s.id WHERE i.user_id = ?
-    2. Return array of interests
+
     """
-    # TODO: Implement get user interests logic
+
     
     conn = get_db_connection()
     if not conn:
@@ -980,12 +898,12 @@ async def get_user_interests(user_id: int):
 @app.get("/api/interests/space/{space_id}")
 async def get_space_interests(space_id: int):
     """
-    Get all interests for a space.
+    get all interests for a space.
     
-    RECEIVES (path parameter):
-    - space_id: int
+    receive
+    - space_id
     
-    RETURNS:
+    return
     [
         {
             "id": 456,
@@ -1000,11 +918,6 @@ async def get_space_interests(space_id: int):
         }
     ]
     
-    LOGIC:
-    1. Query interests with user details:
-       SELECT i.*, u.username as user_name, u.email as user_email
-       FROM interests i JOIN users u ON i.user_id = u.id WHERE i.space_id = ?
-    2. Return array of interests
     """
     try:
         # 1. Connect to MySQL
@@ -1044,17 +957,17 @@ async def get_space_interests(space_id: int):
 @app.put("/api/interests/{interest_id}/respond")
 async def respond_to_interest(interest_id: int, request: Request):
     """
-    Host responds to an interest (accept/reject).
-    
-    RECEIVES (path parameter):
+    Host response (accept/reject).
+
+    receive
     - interest_id: int
     
-    RECEIVES (from request body):
+    body
     {
         "status": "accepted"  # or "rejected"
     }
     
-    YOU NEED TO RETURN:
+    return
     {
         "id": 456,
         "user_id": 1,
@@ -1070,13 +983,9 @@ async def respond_to_interest(interest_id: int, request: Request):
         "space_rate": 15.0
     }
     
-    LOGIC TO IMPLEMENT:
-    1. Get status from request body
-    2. Update interest: UPDATE interests SET status = ?, host_response_date = NOW() WHERE id = ?
-    3. Get updated interest with user and space details using JOINs
-    4. Return updated interest object
+
     """
-    # TODO: Implement respond to interest logic
+
     
     try:
         # 1. Parse JSON body
@@ -1168,20 +1077,16 @@ async def cancel_interest(interest_id: int):
 @app.get("/api/interests/check/{space_id}/{user_id}")
 async def check_user_interest(space_id: int, user_id: int):
     """
-    Check if user has expressed interest in a space.
     
-    RECEIVES (path parameters):
+    
+    receive
     - space_id: int
     - user_id: int
     
-    YOU NEED TO RETURN:
+    return
     {"has_interest": true}  # or false
     
-    LOGIC TO IMPLEMENT:
-    1. Query if interest exists: SELECT COUNT(*) FROM interests WHERE user_id = ? AND space_id = ?
-    2. Return boolean result
     """
-    # TODO: Implement check user interest logic
     try:
         # 1. Connect to MySQL
         connection = get_db_connection()
@@ -1205,21 +1110,24 @@ async def check_user_interest(space_id: int, user_id: int):
         if 'connection' in locals() and connection.is_connected():
             cursor.close()
             connection.close()
+
+
+
 # REPORT ENDPOINTS
 
 @app.post("/api/reports")
 async def create_report(request: Request):
     """
-    Create a new report.
+
     
-    RECEIVES (from request body):
+    body
     {
         "reporter_id": 1,
         "reported_id": 123,
         "reason": "User was inappropriate"
     }
     
-    YOU NEED TO RETURN:
+    return
     {
         "id": 789,
         "reporter_id": 1,
@@ -1234,15 +1142,8 @@ async def create_report(request: Request):
         "reported_email": "bad@example.com"
     }
     
-    LOGIC TO IMPLEMENT:
-    1. Get reporter_id, reported_id, space_id, reason from request body
-    2. Get reporter and reported user details from database
-    3. Get reporter and reported user details
-    4. If space_id provided, get space title and append to reason
-    5. Insert report: INSERT INTO reports (reporter_id, reported_id, reporter_role, reported_role, reason, timestamp) VALUES (?, ?, ?, ?, ?, NOW())
-    6. Return report with all user details
     """
-    # TODO: Implement create report logic
+ 
     try:
         # 1. Parse request body
         data = await request.json()
@@ -1328,18 +1229,15 @@ async def create_report(request: Request):
 @app.get("/api/reports")
 async def get_reports():
     """
-    Get all reports (admin only).
+    Get all reports 
     
-    RECEIVES: Nothing
+
     
     YOU NEED TO RETURN:
-    Array of reports (same format as create_report)
-    
-    LOGIC TO IMPLEMENT:
-    1. Query all reports with user details using JOINs
-    2. Return array of reports
+    same formate as create reports
+
     """
-    # TODO: Implement get reports logic
+
     
     try:
         # 1. Connect to MySQL
@@ -1367,33 +1265,55 @@ async def get_reports():
         # """
         # cursor.execute(query)
         # reports = cursor.fetchall()
-        
+
         query = """
-        SELECT reporter_id, reported_id, reason, DATE_FORMAT(timestamp, '%Y-%m-%dT%H:%i:%sZ') AS timestamp FROM reports
+            SELECT
+                r.id,
+                r.reporter_id,
+                r.reported_id,
+                r.reason,
+                DATE_FORMAT(r.timestamp, '%Y-%m-%dT%H:%i:%sZ') AS timestamp,
+                reporter.role AS reporter_role,
+                reported.role AS reported_role,
+                reporter.username AS reporter_name,
+                reported.username AS reported_name,
+                reporter.email AS reporter_email,
+                reported.email AS reported_email
+            FROM reports r
+            JOIN users reporter ON r.reporter_id = reporter.id
+            JOIN users reported ON r.reported_id = reported.id
+            ORDER BY r.timestamp DESC
         """
         cursor.execute(query)
         reports = cursor.fetchall()
+        
+        # query = """
+        # SELECT id, reporter_id, reported_id, reason, DATE_FORMAT(timestamp, '%Y-%m-%dT%H:%i:%sZ') AS timestamp FROM reports
+        # """
+        # cursor.execute(query)
+        # reports = cursor.fetchall()
 
-        query2 = """
-        SELECT * FROM users WHERE id = %s
-        """
-        cursor.execute(query2, (reports[0]["reporter_id"],))
-        reporter_role = cursor.fetchone()
-        cursor.execute(query2, (reports[0]["reported_id"],))
-        reported_role = cursor.fetchone()
+        # query2 = """
+        # SELECT * FROM users WHERE id = %s
+        # """
+        # cursor.execute(query2, (reports[0]["reporter_id"],))
+        # reporter_role = cursor.fetchone()
+        # cursor.execute(query2, (reports[0]["reported_id"],))
+        # reported_role = cursor.fetchone()
 
-        payload = {
-            "reporter_id": reports[0]["reporter_id"],
-            "reported_id": reports[0]["reported_id"],
-            "reporter_role": reporter_role["role"],
-            "reported_role": reported_role["role"],
-            "reason": reports[0]["reason"],
-            "timestamp": reports[0]["timestamp"],
-            "reporter_name": reporter_role["username"],
-            "reported_name": reported_role["username"],
-            "reporter_email": reporter_role["email"],
-            "reported_email": reported_role["email"]
-        }
+        # payload = {
+        #     "id": reports[0]["id"],
+        #     "reporter_id": reports[0]["reporter_id"],
+        #     "reported_id": reports[0]["reported_id"],
+        #     "reporter_role": reporter_role["role"],
+        #     "reported_role": reported_role["role"],
+        #     "reason": reports[0]["reason"],
+        #     "timestamp": reports[0]["timestamp"],
+        #     "reporter_name": reporter_role["username"],
+        #     "reported_name": reported_role["username"],
+        #     "reporter_email": reporter_role["email"],
+        #     "reported_email": reported_role["email"]
+        # }
 
         return reports
 
@@ -1408,13 +1328,13 @@ async def get_reports():
 @app.get("/api/users/for-reporting/{current_user_id}/{target_role}")
 async def get_users_for_reporting(current_user_id: int, target_role: str):
     """
-    Get users that can be reported.
+
     
-    RECEIVES (path parameters):
-    - current_user_id: int
-    - target_role: str ('host' or 'guest')
+    receive
+    - current_user_id
+    - target_role
     
-    YOU NEED TO RETURN:
+    return
     [
         {
             "id": 123,
@@ -1426,11 +1346,9 @@ async def get_users_for_reporting(current_user_id: int, target_role: str):
         }
     ]
     
-    LOGIC TO IMPLEMENT:
-    1. Query users: SELECT * FROM users WHERE role = ? AND id != ? AND status = 'active'
-    2. Return array of users
+
     """
-    # TODO: Implement get users for reporting logic
+
     
     try:
         # 1. Connect to MySQL
@@ -1466,11 +1384,11 @@ async def get_users_for_reporting(current_user_id: int, target_role: str):
 @app.get("/api/admin/users")
 async def get_all_users():
     """
-    Get all users except admins.
+    get all users
     
-    RECEIVES: Nothing
+
     
-    YOU NEED TO RETURN:
+    return
     [
         {
             "id": 123,
@@ -1482,11 +1400,8 @@ async def get_all_users():
         }
     ]
     
-    LOGIC TO IMPLEMENT:
-    1. Query all users: SELECT * FROM users WHERE role != 'admin'
-    2. Return array of users
+
     """
-    # TODO: Implement get all users logic
     
     try:
         # 1. Connect to MySQL
@@ -1520,19 +1435,16 @@ async def get_all_users():
 @app.put("/api/admin/users/{user_id}/ban")
 async def ban_user(user_id: int):
     """
-    Ban a user.
+
     
-    RECEIVES (path parameter):
+    recieve
     - user_id: int
     
-    YOU NEED TO RETURN:
+    return 
     {"message": "User banned successfully"}
     
-    LOGIC TO IMPLEMENT:
-    1. Update user: UPDATE users SET status = 'banned' WHERE id = ?
-    2. Return success message
+   
     """
-    # TODO: Implement ban user logic
     try:
         # 1. Connect to MySQL
         connection = get_db_connection()
@@ -1564,19 +1476,16 @@ async def ban_user(user_id: int):
 @app.put("/api/admin/users/{user_id}/unban")
 async def unban_user(user_id: int):
     """
-    Unban a user.
     
-    RECEIVES (path parameter):
+    receive
     - user_id: int
     
     YOU NEED TO RETURN:
     {"message": "User unbanned successfully"}
     
-    LOGIC TO IMPLEMENT:
-    1. Update user: UPDATE users SET status = 'active' WHERE id = ?
-    2. Return success message
+
     """
-    # TODO: Implement unban user logic
+
     try:
         # 1. Connect to MySQL
         connection = get_db_connection()
@@ -1608,20 +1517,15 @@ async def unban_user(user_id: int):
 @app.delete("/api/admin/users/{user_id}")
 async def delete_user(user_id: int):
     """
-    Delete a user and all related data.
+
     
-    RECEIVES (path parameter):
+    receive
     - user_id: int
     
     YOU NEED TO RETURN:
     {"message": "User deleted successfully"}
-    
-    LOGIC TO IMPLEMENT:
-    1. Delete user: DELETE FROM users WHERE id = ?
-    2. Related data will be deleted automatically due to foreign key constraints
-    3. Return success message
+
     """
-    # TODO: Implement delete user logic
     try:
         # 1. Connect to MySQL
         connection = get_db_connection()
@@ -1651,11 +1555,9 @@ async def delete_user(user_id: int):
 @app.get("/api/admin/pending-hosts")
 async def get_pending_hosts():
     """
-    Get all pending host applications.
-    
-    RECEIVES: Nothing
-    
-    YOU NEED TO RETURN:
+   
+
+    return
     [
         {
             "id": 123,
@@ -1667,11 +1569,8 @@ async def get_pending_hosts():
         }
     ]
     
-    LOGIC TO IMPLEMENT:
-    1. Query all pending hosts: SELECT * FROM pending_hosts
-    2. Return array of pending hosts
+
     """
-    # TODO: Implement get pending hosts logic
     try:
         # 1. Connect to MySQL
         connection = get_db_connection()
@@ -1704,22 +1603,16 @@ async def get_pending_hosts():
 @app.post("/api/admin/approve-host/{pending_host_id}")
 async def approve_host(pending_host_id: int, request: Request):
     """
-    Approve a pending host application.
     
-    RECEIVES (path parameter):
-    - pending_host_id: int
-    - admin_id: int
+    receives
+    - pending_host_id
+    - admin_id
     
-    YOU NEED TO RETURN:
+    return
     {"message": "Host approved successfully"}
     
-    LOGIC TO IMPLEMENT:
-    1. Get pending host data: SELECT * FROM pending_hosts WHERE id = ?
-    2. Insert into users table: INSERT INTO users (username, email, password, role, status) VALUES (?, ?, ?, 'host', 'active')
-    3. Delete from pending_hosts: DELETE FROM pending_hosts WHERE id = ?
-    4. Return success message
+
     """
-    # TODO: Implement approve host logic
     try:
         data = await request.json()
         admin_id = data.get("admin_id")
@@ -1777,19 +1670,16 @@ async def approve_host(pending_host_id: int, request: Request):
 @app.delete("/api/admin/reject-host/{pending_host_id}")
 async def reject_host(pending_host_id: int):
     """
-    Reject a pending host application.
+
     
-    RECEIVES (path parameter):
-    - pending_host_id: int
+    receive
+    - pending_host_id
     
     YOU NEED TO RETURN:
     {"message": "Host application rejected"}
     
-    LOGIC TO IMPLEMENT:
-    1. Delete from pending_hosts: DELETE FROM pending_hosts WHERE id = ?
-    2. Return success message
+
     """
-    # TODO: Implement reject host logic
     try:
         # 1. Connect to MySQL
         connection = get_db_connection()
@@ -1811,6 +1701,10 @@ async def reject_host(pending_host_id: int):
         if 'connection' in locals() and connection.is_connected():
             cursor.close()
             connection.close()
+
+
+
+            
 
 if __name__ == "__main__":
     import uvicorn
