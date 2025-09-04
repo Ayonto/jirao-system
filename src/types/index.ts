@@ -14,6 +14,8 @@ export interface Space {
   type: 'room' | 'parking';
   title: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
   rate_per_hour: number;
   description: string;
   availability: 'available' | 'on_hold' | 'not_available';
@@ -87,6 +89,8 @@ export interface CreateSpaceData {
   type: 'room' | 'parking';
   title: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
   rate_per_hour: number;
   description: string;
   availability: 'available' | 'on_hold' | 'not_available';
@@ -102,6 +106,8 @@ export interface CreateSpaceData {
 export interface UpdateSpaceData {
   title: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
   rate_per_hour: number;
   description: string;
   // Parking-specific fields

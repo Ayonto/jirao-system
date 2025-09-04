@@ -3,6 +3,8 @@ import { api } from '../../services/api';
 import React, { useState } from 'react';
 import { X, MapPin, Users, Calendar, Clock, Star, Flag, Home, Car } from 'lucide-react';
 import { Space } from '../../types';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import L from 'leaflet';
 
 interface SpaceModalProps {
   space: Space;
@@ -124,6 +126,27 @@ const SpaceModal: React.FC<SpaceModalProps> = ({ space, onClose, userRole = 'gue
               {getAvailabilityText(space.availability)}
             </span>
           </div>
+
+          {/* Map (read-only) */}
+          {space.latitude !== undefined && space.longitude !== undefined && (
+            <div className="mb-6">
+              <h3 className="font-semibold text-gray-900 mb-2">Location</h3>
+              <div className="h-64 rounded-lg overflow-hidden border border-gray-200">
+                <MapContainer
+                  center={[space.latitude, space.longitude]}
+                  zoom={13}
+                  scrollWheelZoom={false}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <Marker position={[space.latitude, space.longitude]} icon={new L.Icon.Default()} />
+                </MapContainer>
+              </div>
+            </div>
+          )}
 
           {/* Parking Dimensions */}
           {space.type === 'parking' && space.dimensions && (

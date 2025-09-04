@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../../services/api';
 import { Report } from '../../types';
-import { AlertTriangle, User, Mail, Clock, Ban, Eye, Home, Car, MapPin } from 'lucide-react';
+import { AlertTriangle, User, Mail, Clock, Ban, Eye, Home, Car } from 'lucide-react';
 
 interface ReportsManagementProps {
   reports: Report[];

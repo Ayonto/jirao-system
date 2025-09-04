@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../../services/api';
 import { PendingHost } from '../../types';
 import { UserCheck, X, Calendar, Mail, Image, Check } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface HostApprovalProps {
   pendingHosts: PendingHost[];
@@ -9,13 +10,15 @@ interface HostApprovalProps {
 }
 
 const HostApproval: React.FC<HostApprovalProps> = ({ pendingHosts, onHostAction }) => {
+  const { user } = useAuth();
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [selectedHost, setSelectedHost] = useState<PendingHost | null>(null);
 
   const handleApproveHost = async (hostId: number) => {
+    if (!user) return;
     setActionLoading(hostId);
     try {
-      await api.approveHost(hostId);
+      await api.approveHost(hostId, user.id);
       onHostAction();
     } catch (error) {
       console.error('Error approving host:', error);

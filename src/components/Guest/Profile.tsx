@@ -42,6 +42,31 @@ const Profile: React.FC = () => {
 
   if (!user) return null;
 
+  // Hide interest history for hosts
+  if (user.role === 'host') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Profile Header */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
+            <div className="flex items-center space-x-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-2xl flex items-center justify-center">
+                <User className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{user.username}</h1>
+                <p className="text-gray-600">{user.email}</p>
+                <span className="inline-block mt-1 px-3 py-1 bg-cyan-100 text-cyan-700 text-sm font-medium rounded-full capitalize">
+                  {user.role}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
