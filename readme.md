@@ -58,17 +58,13 @@ Open `http://localhost:5173` in your browser.
 
 By default, the frontend expects the backend at `http://localhost:8000/api` (see `src/services/api.ts`).
 
----
 
-## Optional: Run with Mock API (no backend required)
-The repo includes `src/services/mockApi.ts` . To use it without changing all imports, replace the contents of `src/services/api.ts` with a single re-export:
+### 3) Database ( MYSQL - XAMPP ) 
+The database was developed and tested using XAMPP, hence is recommended to setup the Database using XAMPP
+1. In the Database folder, `JIRAO.sql` contains the full database, structure along with dummy values.
+2. Import `JIRAO.sql`, name the database `jirao_db`, as by default the backend expectes the database name `jirao_db`
+3. Open XAMPP, start Apache and MySQL server.
 
-```ts
-// src/services/api.ts
-export { mockApi as api } from './mockApi';
-```
-
-Revert to the real API by restoring the original file.
 
 ---
 
